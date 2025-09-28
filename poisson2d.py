@@ -40,6 +40,7 @@ class Poisson2D:
         y = np.linspace(0, self.Ly, self.Ny+1)
         self.dx = abs(x[1] - x[0])
         self.dy = abs(y[1] - y[0])
+        self.h = max(self.dx, self.dy)
         mesh = np.meshgrid(x, y, indexing='ij')
         self.xij, self.yij = mesh
         # self.xij, self.yij ...
@@ -133,12 +134,12 @@ class Poisson2D:
         for m in range(m):
             u = self(N0)
             E.append(self.l2_error(u))
-            h.append(self.dx)
+            h.append(self.h)
             N0 *= 2
         r = [np.log(E[i-1]/E[i])/np.log(h[i-1]/h[i]) for i in range(1, m+1, 1)]
         return r, np.array(E), np.array(h)
 
-    def lagrange_basis(xj, x = x):
+    def lagrange_basis(self, xj, x = x):
         """Construct a Lagrange basis for the given points
 
         Parameters
@@ -156,10 +157,11 @@ class Poisson2D:
         numerator_all = sp.Mul(*[x- xji for xji in xj])
         for i in range(n):
             num = numerator_all / (x - xj[i])
-            den = Mul(*[(xj[i] - xj[j]) for j in range(n) if i != j])
+            den = sp.Mul(*[(xj[i] - xj[j]) for j in range(n) if i != j])
             ell.append(num/den)
         return ell
-    def lagrange_function(u, basisx, basisy):
+
+    def lagrange_function(self, u, basisx, basisy):
         """Return Lagrange polynomial
 
         Parameters
@@ -175,6 +177,7 @@ class Poisson2D:
             for j in range(M):
                 f += basisx[i] * basisy[j] * u[i, j]
         return f
+
     def eval(self, xf, yf):
         """Return u(xf, yf)
 
@@ -189,14 +192,14 @@ class Poisson2D:
 
         """
         # Which values to interpolate from?
-        radius = self.dx * 2
-        xnbhd = np.asarray(np.abs(xf - self.xij) < radius).nonzero()
-        ynbhd = np.asarray(np.abs(yf - self.yij) < radius).nonzero()
-        nbhd = np.logical_and(xnbhd, ynbhd)
-        basisx = self.lagrange_basis(self.xij)
-        basisy = self.lagrange_basis(self.yij)
-        L = self.lagrange_function(u, basisx, basisy)
-        return L.subs({x: xf, y: fy})
+        radius = self.dx * 1.5 
+        xnbhd = np.asarray(np.abs(xf - self.xij[:,0]) < radius).nonzero()[0]
+        ynbhd = np.asarray(np.abs(yf - self.yij[0]) < radius).nonzero()[0]
+        basisx = self.lagrange_basis(self.xij[xnbhd, 0].ravel(), x = x)
+        basisy = self.lagrange_basis(self.yij[0, ynbhd].ravel(), x = y)
+        subset_u = self.U[xnbhd, :][:, ynbhd]
+        L = self.lagrange_function(subset_u, basisx, basisy)
+        return L.subs({x: xf, y: yf}).n()
         # self.U interpolated at x, y
 
 def test_convergence_poisson2d():
