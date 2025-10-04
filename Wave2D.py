@@ -19,7 +19,7 @@ class Wave2D:
     def D2(self, N):
         """Return second order differentiation matrix"""
         assert N >= 4
-        D = sparse.diags([1, -2, 1], [-1, 0, 1], 
+        D = sparse.diags([1, -2, 1], [-1, 0, 1],
                          (N + 1, N + 1), 'lil')
         D[0, :4] = 2, -5, 4, -1
         D[-1, -4:] = -1, 4, -5, 2
@@ -173,13 +173,21 @@ class Wave2D:
 class Wave2D_Neumann(Wave2D):
 
     def D2(self, N):
-        raise NotImplementedError
+        """Differentiation matrix with inbuilt Neumann BCs"""
+        assert N >= 4
+        D = sparse.diags([1, -2, 1], [-1, 0, 1],
+                         (N + 1, N + 1), 'lil')
+        D[0, :4] = -2, +2, 0, 0
+        D[-1, -4:] = 0, 0, +2, -2
+        return D
 
     def ue(self, mx, my):
-        raise NotImplementedError
+        """Return the exact standing wave"""
+        return sp.cos(mx*sp.pi*x)*sp.cos(my*sp.pi*y)*sp.cos(self.w*t)
 
-    def apply_bcs(self):
-        raise NotImplementedError
+    def apply_bcs(self, Unp1):
+        """Neumann BCs"""
+        return Unp1
 
 def test_convergence_wave2d():
     sol = Wave2D()
@@ -195,4 +203,5 @@ def test_exact_wave2d():
     raise NotImplementedError
 
 if __name__ == "__main__":
+    test_convergence_wave2d_neumann()
     test_convergence_wave2d()
