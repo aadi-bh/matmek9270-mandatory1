@@ -47,7 +47,10 @@ class Wave2D:
             Parameters for the standing wave
         """
         Unp1, Un, Unm1 = np.zeros((3, N+1, N+1))
-        Unm1[:] = sp.lambdify((t, x, y), self.ue(self.mx, self.my))(0, self.xij, self.yij)
+        # Exact at t=0
+        Unm1[:] = sp.lambdify((t, x, y), self.ue(self.mx, self.my))(0.0, self.xij, self.yij)
+        # Exact at t=∆t
+        Un[:] = sp.lambdify((t, x, y), self.ue(self.mx, self.my))(self.dt, self.xij, self.yij)
         return Unp1, Un, Unm1
 
     @property
@@ -114,8 +117,9 @@ class Wave2D:
         xij, yij = self.create_mesh(N)
         Dx = Dy = self.D2(N) / self.dx**2
         Unp1, Un, Unm1 = self.initialize(N, mx, my)
-        # Solve for Un assuming Unm2 = Unp1
-        Un[:] = Unm1[:] + 0.5 * (c * self.dt)**2 * (Dx @ Unm1 + Unm1 @ Dy.T)
+        # Solve for U at n=0 assuming Unm1 = Unp1
+        # But this is introduces too much error for the Dirichlet BC
+        # Un[:] = Unm1[:] + 0.5 * (c * self.dt)**2 * (Dx @ Unm1 + Unm1 @ Dy.T)
         plotdata = {0: Unm1.copy()}
         if store_data == 1:
             plotdata[1] = Un.copy()
@@ -191,7 +195,7 @@ class Wave2D_Neumann(Wave2D):
 
 def test_convergence_wave2d():
     sol = Wave2D()
-    r, E, h = sol.convergence_rates(mx=2, my=3)
+    r, E, h = sol.convergence_rates(m=5, mx=2, my=3)
     assert abs(r[-1]-2) < 1e-2
 
 def test_convergence_wave2d_neumann():
@@ -200,8 +204,14 @@ def test_convergence_wave2d_neumann():
     assert abs(r[-1]-2) < 0.05
 
 def test_exact_wave2d():
-    raise NotImplementedError
+    sol = Wave2D()
+    r, E, h = sol.convergence_rates(mx=3, my=3, cfl=1.0/np.sqrt(2))
+    assert np.min(E) < 1e-12
+    solN = Wave2D_Neumann()
+    r, E, h = solN.convergence_rates(mx=3, my=3, cfl=1.0/np.sqrt(2))
+    assert np.min(E) < 1e-12
 
 if __name__ == "__main__":
-    test_convergence_wave2d_neumann()
     test_convergence_wave2d()
+    test_exact_wave2d()
+    test_convergence_wave2d_neumann()
