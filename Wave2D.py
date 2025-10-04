@@ -196,20 +196,24 @@ class Wave2D_Neumann(Wave2D):
 def test_convergence_wave2d():
     sol = Wave2D()
     r, E, h = sol.convergence_rates(m=5, mx=2, my=3)
+    print(f"Rate of convergence: {r[-1]}")
     assert abs(r[-1]-2) < 1e-2
 
 def test_convergence_wave2d_neumann():
     solN = Wave2D_Neumann()
     r, E, h = solN.convergence_rates(mx=2, my=3)
+    print(f"Rate of convergence: {r[-1]}")
     assert abs(r[-1]-2) < 0.05
 
 def test_exact_wave2d():
     sol = Wave2D()
     r, E, h = sol.convergence_rates(mx=3, my=3, cfl=1.0/np.sqrt(2))
-    assert np.min(E) < 1e-12
+    print(f"Dirichlet: maximum error = {np.max(E)}")
+    assert np.max(E) < 1e-12
     solN = Wave2D_Neumann()
     r, E, h = solN.convergence_rates(mx=3, my=3, cfl=1.0/np.sqrt(2))
-    assert np.min(E) < 1e-12
+    print(f"Neumann: maximum error = {np.max(E)}")
+    assert np.max(E) < 1e-12
 
 if __name__ == "__main__":
     test_convergence_wave2d()
