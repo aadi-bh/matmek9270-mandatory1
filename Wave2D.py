@@ -28,6 +28,7 @@ class Wave2D:
     @property
     def w(self):
         """Return the dispersion coefficient"""
+        # Assuming k = m times π
         norm_k = np.pi * np.sqrt(self.mx**2 + self.my**2)
         return self.c * norm_k
 
@@ -45,13 +46,14 @@ class Wave2D:
         mx, my : int
             Parameters for the standing wave
         """
-        raise NotImplementedError
+        Unp1, Un, Unm1 = np.zeros((3, N+1, N+1))
+        Unm1[:] = sp.lambdify((t, x, y), self.ue(self.mx, self.my))(0, self.xij, self.yij)
+        return Unp1, Un, Unm1
 
     @property
     def dt(self):
         """Return the time step"""
         return self.cfl * self.dx / self.c
-        raise NotImplementedError
 
     def l2_error(self, u, t0):
         """Return l2-error norm
@@ -66,8 +68,13 @@ class Wave2D:
         uj = sp.lambdify((t, x, y), self.ue(self.mx, self.my))(t0, self.xij, self.yij)
         return np.sqrt(self.dx * self.dy * np.sum((uj - u)**2))
 
-    def apply_bcs(self):
-        raise NotImplementedError
+    def apply_bcs(self, Unp1):
+        # Boundary
+        Unp1[0, :] = 0.0
+        Unp1[-1, :] = 0.0
+        Unp1[:, -1] = 0.0
+        Unp1[:, 0] = 0.0
+        return Unp1
 
     def __call__(self, N, Nt, cfl=0.5, c=1.0, mx=3, my=3, store_data=-1):
         """Solve the wave equation
@@ -105,9 +112,8 @@ class Wave2D:
 
         # Run the solver
         xij, yij = self.create_mesh(N)
-        Unp1, Un, Unm1 = np.zeros((3, N+1, N+1))
-        Unm1[:] = sp.lambdify((t, x, y), self.ue(self.mx, self.my))(0, xij, yij)
         Dx = Dy = self.D2(N) / self.dx**2
+        Unp1, Un, Unm1 = self.initialize(N, mx, my)
         # Solve for Un assuming Unm2 = Unp1
         Un[:] = Unm1[:] + 0.5 * (c * self.dt)**2 * (Dx @ Unm1 + Unm1 @ Dy.T)
         plotdata = {0: Unm1.copy()}
@@ -117,10 +123,7 @@ class Wave2D:
             # March
             Unp1[:] = 2 * Un - Unm1 + (c * self.dt)**2 * (Dx @ Un + Un @ Dy.T)
             # Boundary
-            Unp1[0, :] = 0.0
-            Unp1[-1, :] = 0.0
-            Unp1[:, -1] = 0.0
-            Unp1[:, 0] = 0.0
+            Unp1 = self.apply_bcs(Unp1)
             # Store
             if store_data > 0 and n % store_data == 0:
                 plotdata[n] = Unp1.copy()
